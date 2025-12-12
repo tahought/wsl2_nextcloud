@@ -1,0 +1,55 @@
+
+services:
+  # 1. データベース (MariaDB)
+  db:
+    image: mariadb:10.6
+    restart: always
+    # Nextcloud推奨のトランザクション設定
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+    networks:
+      - nextcloud_net
+
+  # 2. キャッシュサーバー (Redis)
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - nextcloud_net
+
+  # 3. Webアプリケーション (Nextcloud)
+  app:
+    image: nextcloud:latest
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - nextcloud_data:/var/www/html
+    environment:
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_HOST=db
+      - REDIS_HOST=redis
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+      - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
+    networks:
+      - nextcloud_net
+    depends_on:
+      - db
+      - redis
+
+# データの永続化設定（コンテナを消してもデータが残るようにする）
+volumes:
+  nextcloud_data:
+  db_data:
+
+# 内部ネットワーク設定
+networks:
+  nextcloud_net:
